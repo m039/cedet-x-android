@@ -29,18 +29,52 @@
 (defvar ede-x-android-project-list nil
   "List of projects created by option `ede-x-android-project'.")
 
-;; (NAME VERSION PACKAGE)
+(defun ede-x-android-project-existing (dir)
+  "Find an Android project in the list of Android projects.
+DIR is the directory to search from."
+  (let ((projs ede-android-project-list)
+		(ans nil))
+    (while (and projs
+				(not ans))
+      (let ((root (ede-project-root-directory (car projs))))
+		(when (string-match (concat "^" (regexp-quote root)) dir)
+		  (setq ans (car projs))))
+      (setq projs (cdr projs)))
+    ans))
+
+(defun ede-x-android-proj-root (&optional file)
+  (when (not file) (setq file default-directory))
+  (let (ans)
+	(while (and file
+				(not ans))
+	  (when (file-exists-p (expand-file-name "AndroidManifest.xml" file))
+		(setq ans file))
+	  (setq file (ede-up-directory file)))
+	ans))
 
 (defun ede-x-android-load (dir &optional rootproj)
-  (message "dir %s, rootproj %s" dir rootproj)
-  (let* ((pd (ede-x-android-project-data dir)))
-	(ede-x-android-project
-	 (cdr (assoc 'name pd))
-	 :name (cdr (assoc 'name pd))
-	 :version (cdr (assoc 'version pd))
-	 :directory (file-name-as-directory dir)
-	 :file (expand-file-name "AndroidManifest.xml" dir)
-	 :package (cdr (assoc 'package pd)))))
+  (or (ede-x-android-project-existing dir)
+	  (let* ((pd (ede-x-android-project-data dir))
+			 (proj (ede-x-android-project
+					(cdr (assoc 'name pd))
+					:name (cdr (assoc 'name pd))
+					:version (cdr (assoc 'version pd))
+					:directory (file-name-as-directory dir)
+					:file (expand-file-name "AndroidManifest.xml" dir)
+					:package (cdr (assoc 'package pd)))))
+		(ede-add-project-to-global-list proj))))
+
+;;;###autoload
+(ede-add-project-autoload
+ (ede-project-autoload "x-android"
+			   :name "X ANDROID ROOT"
+			   :file 'ede-x-android
+			   :proj-file "AndroidManifest.xml"
+			   :proj-root 'ede-x-android-proj-root
+			   :load-type 'ede-x-android-load
+			   :class-sym 'ede-x-android-project
+			   :new-p t
+			   :safe-p t))
 
 (defun ede-x-android-project-data (dir)
   (let ((name		(ede-x-android-project-data-name dir))
@@ -62,32 +96,26 @@
 
 (defun ede-x-android-project-data-name (dir)
   (flet ((find-name-in-build-xml ()
-								 (let (name)
-								   (if (not (file-exists-p (expand-file-name "build.xml")))
-									   (setq name nil)
-									 (let* ((root (car (xml-parse-file (expand-file-name "build.xml"))))
-											(name-text (xml-get-attribute-or-nil root 'name)))
-									   (setq name name-text))
-									 name)))
+								 (if (not (file-exists-p (expand-file-name "build.xml")))
+									 nil
+								   (let* ((root (car (xml-parse-file (expand-file-name "build.xml"))))
+										  (name-text (xml-get-attribute-or-nil root 'name)))
+									 name-text)))
 		 (find-name-in-pom-xml ()
-							   (let (name)
-								 (if (not (file-exists-p (expand-file-name "pom.xml")))
-									 (setq name nil)
-								   (let* ((root (car (xml-parse-file (expand-file-name "pom.xml"))))
+							   (if (not (file-exists-p (expand-file-name "pom.xml")))
+								   nil
+								 (let* ((root (car (xml-parse-file (expand-file-name "pom.xml"))))
 										  (name-child (car (xml-get-children root 'name)))
 										  (name-text (car (xml-node-children name-child))))
-									 (setq name name-text)
-									 name))))
+									 name-text)))
 		 (find-name-in-eclipse-xml ()
-							   (let (name)
 								 (if (not (file-exists-p (expand-file-name ".project")))
-									 (setq name nil)
+									 nil
 								   (let* ((root (car (xml-parse-file (expand-file-name ".project"))))
 										  (name-child (car (xml-get-children root 'name)))
 										  (name-text (car (xml-node-children name-child))))
-									 (setq name name-text)
-									 name))))
-		 
+									 name-text)))
+
 		 (find-name-in-mainfest-xml ()
 									;; TODO
 									nil))
@@ -101,27 +129,21 @@
 		  (unless (null name)
 			(return name)))))))
 
+;; CLASSES
+;; -------
+
+;;;###autoload
 (defclass ede-x-android-project (ede-project eieio-instance-tracker)
   ((tracking-symbol :initform 'ede-x-android-project-list)
-   ;; (keybindings :initform (("S" . ede-android-visit-strings)))
-   ;; (menu :initform
-   ;; 	 (
-   ;; 	  [ "Visit strings.xml" ede-android-visit-strings ]
-   ;; 	  [ "Edit Projectfile" ede-edit-file-target
-   ;; 		(ede-buffer-belongs-to-project-p) ]
-   ;; 	  [ "Start Debug Proxy (DDMS)" cedet-android-start-ddms ]
-   ;; 	  "--"
-   ;; 	  [ "Update Version" ede-update-version ede-object ]
-   ;; 	  [ "Version Control Status" ede-vc-project-directory ede-object ]
-   ;; 	  [ "Android Shell" cedet-android-adb-shell ede-object ]
-   ;; 	  [ "Layout Optimizer" ede-android-layoutopt ede-object ]
-   ;; 	  "--"
-   ;; 	  [ "Rescan Project Files" ede-rescan-toplevel t ]
-   ;; 	  ))
-
    (targets :initform nil)
-   (configurations :initform ("debug" "install" "release") :type list)   
-   (configuration-default :initform "debug")
+   (configurations :initform ("debug install"
+							  "clean debug"
+							  "clean debug install"
+							  "release install"
+							  "clean release"
+							  "clean release install") :type list)
+
+   (configuration-default :initform "clean debug install")
 
    (package :initarg :package
 		:initform "com"
@@ -129,15 +151,95 @@
 		:documentation "The package extracted from the Manifest."))
   "Project for Android applications.")
 
-(ede-add-project-autoload
- (ede-project-autoload "x-android"
-			   :name "X ANDROID ROOT"
-			   :file 'ede-x-android
-			   :proj-file "AndroidManifest.xml"
-			   :load-type 'ede-x-android-load
-			   :class-sym 'ede-x-android-project
-			   :new-p t
-			   :safe-p t))
+(defclass ede-x-android-target-misc (ede-target)
+  ()
+  "EDE X-Android Project target for Misc files.
+All directories with files should have at least one target.")
+
+(defclass ede-x-android-target-java (ede-target)
+  ()
+  "EDE X-Android Project target for .java files.")
+
+(defclass ede-x-android-target-xml (ede-target)
+  ()
+  "EDE X-Android Project target for .xml files.")
+
+(defmethod project-rescan ((this ede-x-android-project))
+  (let ((pd (ede-x-android-project-data (file-name-directory (oref this file)))))
+	(oset this name (cdr (assoc 'name pd)))
+	(oset this version (cdr (assoc 'version pd)))
+	(oset this package (cdr (assoc 'package pd)))))
+
+;;; TARGET
+;;  ------
+
+(defun ede-x-android-find-matching-target (class dir targets)
+  "Find a target that is a CLASS and is in DIR in the list of TARGETS."
+  (let ((match nil))
+    (dolist (T targets)
+      (when (and (object-of-class-p T class)
+				 (string= (oref T :path) dir))
+		(setq match T)
+		))
+    match))
+
+(defmethod ede-find-target ((proj ede-x-android-project) buffer)
+  "Find an EDE target in PROJ for BUFFER.
+If one doesn't exist, create a new one for this directory."
+  (let* ((ext (file-name-extension (buffer-file-name buffer)))
+		 (cls (cond ((string-match "java" ext)
+					 'ede-x-android-target-java)
+					((string-match "xml" ext)
+					 'ede-x-android-target-xml)
+					(t 'ede-x-android-target-misc)))
+		 (targets (oref proj targets))
+		 (dir default-directory)
+		 (ans (ede-x-android-find-matching-target cls dir targets))
+		 )
+    (when (not ans)
+      (setq ans (make-instance 
+				 cls 
+				 :name (file-name-nondirectory
+						(directory-file-name dir))
+				 :path dir
+				 :source nil))
+      (object-add-to-list proj :targets ans))
+    ans))
+
+(file-name-nondirectory (buffer-file-name))
+
+;;; File Stuff
+;;  ---- -----
+
+(defmethod ede-project-root-directory ((this ede-x-android-project)
+									   &optional file)
+  (file-name-directory (oref this file)))
+
+(defmethod ede-project-root ((this ede-x-android-project))
+  this)
+
+(defmethod ede-find-subproject-for-directory ((this ede-x-android-project)
+											  dir)
+  this)
+
+;;; Compile/Debug commands
+;; -------------- --------
+
+(defun ede-x-android-compile-ant (target &optional dir)
+  "Function to compile the Android project using ant.
+Argument TARGET is ant's target like \"debug\". DIR is the root
+directory of the project"
+  (let ((default-directory dir))
+	(when (file-exists-p "build.xml")
+	  (compile (concat "ant " target)))))
+
+(defmethod project-compile-project ((proj ede-x-android-project) &optional command)
+  "Compile the Android project with ant.
+Argument COMMAND is the command to use when compiling."
+  (when (null (ede-x-android-compile-ant (oref proj configuration-default)
+										 (ede-project-root-directory proj)))
+	(message "Sorry, only 'ant' project supported.")))
+
 
 (provide 'ede-x-android)
 
