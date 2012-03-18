@@ -1,30 +1,10 @@
 (require 'cedet-android)
 
-(setq old-ede-files ede-project-class-files)
-(setq ede-project-class-files (list
-							   (ede-project-autoload "edeproject-makefile"
-													 :name "Make" :file 'ede-proj
-													 :proj-file "Project.ede"
-													 :load-type 'ede-proj-load
-													 :class-sym 'ede-proj-project
-													 :safe-p nil)
-							   (ede-project-autoload "edeproject-automake"
-													 :name "Automake" :file 'ede-proj
-													 :proj-file "Project.ede"
-													 :initializers '(:makefile-type Makefile.am)
-													 :load-type 'ede-proj-load
-													 :class-sym 'ede-proj-project
-													 :safe-p nil)
-							   (ede-project-autoload "automake"
-													 :name "automake" :file 'project-am
-													 :proj-file "Makefile.am"
-													 :load-type 'project-am-load
-													 :class-sym 'project-am-makefile
-													 :new-p nil
-													 :safe-p t)
-							   ))
-
-(.add-to-load-path "~/Dropbox/Sync/android/")
+(defun ede-x-android-clean-all ()
+  "Only for debugging purpose! Sets all project-lists to nil"
+  (interactive)
+  (setq ede-x-android-project-list nil
+		ede-projects nil))
 
 (defvar ede-x-android-project-list nil
   "List of projects created by option `ede-x-android-project'.")
@@ -32,7 +12,7 @@
 (defun ede-x-android-project-existing (dir)
   "Find an Android project in the list of Android projects.
 DIR is the directory to search from."
-  (let ((projs ede-android-project-list)
+  (let ((projs ede-x-android-project-list)
 		(ans nil))
     (while (and projs
 				(not ans))
@@ -40,6 +20,7 @@ DIR is the directory to search from."
 		(when (string-match (concat "^" (regexp-quote root)) dir)
 		  (setq ans (car projs))))
       (setq projs (cdr projs)))
+	;; (message "find project in %s dir" dir)
     ans))
 
 (defun ede-x-android-proj-root (&optional file)
@@ -74,7 +55,8 @@ DIR is the directory to search from."
 			   :load-type 'ede-x-android-load
 			   :class-sym 'ede-x-android-project
 			   :new-p t
-			   :safe-p t))
+			   :safe-p t)
+ 'unique)
 
 (defun ede-x-android-project-data (dir)
   (let ((name		(ede-x-android-project-data-name dir))
@@ -195,18 +177,21 @@ If one doesn't exist, create a new one for this directory."
 		 (targets (oref proj targets))
 		 (dir default-directory)
 		 (ans (ede-x-android-find-matching-target cls dir targets))
+
+		 ;; adding ext to name only for debugging purpose
+		 (name (concat (file-name-nondirectory
+						(directory-file-name dir))
+					   (unless (null ext)
+						 (format "-%s" ext))))
 		 )
     (when (not ans)
       (setq ans (make-instance 
 				 cls 
-				 :name (file-name-nondirectory
-						(directory-file-name dir))
+				 :name name
 				 :path dir
 				 :source nil))
       (object-add-to-list proj :targets ans))
     ans))
-
-(file-name-nondirectory (buffer-file-name))
 
 ;;; File Stuff
 ;;  ---- -----
@@ -221,6 +206,59 @@ If one doesn't exist, create a new one for this directory."
 (defmethod ede-find-subproject-for-directory ((this ede-x-android-project)
 											  dir)
   this)
+
+;;; Include paths
+;;  ------- -----
+
+(defmethod ede-system-include-path ((this ede-x-android-target-java))
+  "Get the system include path used by target THIS."
+  ;; Get android.jar, and add it.  but how??
+  ;; (message "ede-system-include: %s" this)
+  (list "/opt/android-sdk/sources/android-14/"))
+
+(defmethod ede-java-classpath ((this ede-x-android-project))
+  (list (cedet-android-sdk-jar)))
+
+(defmethod ede-source-paths ((this ede-x-android-project) mode)
+  (list "/opt/android-sdk/sources/android-14/java/lang/"
+		"/opt/android-sdk/sources/android-14/"))
+
+(defun ede-x-android-fname-if-exists (name)
+  "Return the file NAME if it exists as a file."
+  (if (file-exists-p name) name))
+
+(defmethod ede-expand-filename-impl ((proj ede-x-android-project) name)
+  "Within this android project, expand filename NAME."
+  (let ((ans (call-next-method))		; locate feature
+		)
+    (unless ans
+      (let ((pr (ede-project-root-directory proj))
+			(ext (file-name-extension name)))
+		(setq ans
+			  (or
+			   (ede-x-android-fname-if-exists (expand-file-name name))
+			   (when (string= ext "java")
+				 (or
+				  (ede-x-android-fname-if-exists (expand-file-name name (expand-file-name "src" pr)))
+				  (ede-x-android-fname-if-exists (expand-file-name name (expand-file-name "gen" pr)))
+				  ;; @TODO Look in all subdirs of src and gen if not fully qualified.
+				  ))
+			   (when (string= ext "xml")
+				 (or
+				  (ede-android-fname-if-exists (expand-file-name name (expand-file-name "res" pr)))
+				  nil
+				  ;; @TODO Look in all subdirs of res if not fully qualified.
+				  ))
+			   (when (not ext)
+				 ;; No extension, perhaps a directory substruction??
+				 ;; Lets expand it as if a java package name.
+				 (or
+				  (ede-x-android-fname-if-exists (expand-file-name name (expand-file-name "src" pr)))
+				  (ede-x-android-fname-if-exists (expand-file-name name (expand-file-name "gen" pr))))
+				 )
+			   ))
+		))
+    ans))
 
 ;;; Compile/Debug commands
 ;; -------------- --------
@@ -240,9 +278,41 @@ Argument COMMAND is the command to use when compiling."
 										 (ede-project-root-directory proj)))
 	(message "Sorry, only 'ant' project supported.")))
 
+(defmethod project-compile-target ((proj ede-x-android-target-java) &optional command)
+  (project-compile-project (ede-current-project) command))
+  
+(defmethod project-compile-target ((proj ede-x-android-target-xml) &optional command)
+  (project-compile-project (ede-current-project) command))
+
+(defun ede-android-debug-project (startdir)
+  "Start the android JDB debugger in a buffer.
+STARTDIR is the directory to start jdb in.
+Depends on `android.el' that comes with the SDK to get going."
+  ;; Step one, make sure ddms is running.
+  (when (not (cedet-android-ddms-active-p))
+    (if (y-or-n-p "No DDMS process running in Emacs.  Start it? ")
+		(progn
+		  (cedet-android-start-ddms)
+		  ;; Give it a little time.
+		  (message "Starting DDMS ...")
+		  (sit-for 10))
+      (when (not (y-or-n-p "Start Debugger anyway? " ))
+		(signal 'quit nil))))
+  ;; Step two, start jdb.
+
+  (unless (featurep 'android)
+	(add-to-list 'load-path (expand-file-name "tools/lib/" cedet-android-sdk-root))
+	(require 'android))	;; comes with SDK.
+
+  ;; @TODO - the port should be selectable.
+  (android-jdb (car android-jdb-port-history) startdir))
+
+(defmethod project-debug-target ((targ ede-x-android-target-java))
+  (ede-android-debug-project (ede-project-root-directory (ede-current-project))))
+
+(defmethod project-debug-target ((targ ede-x-android-target-xml))
+  (ede-android-debug-project (ede-project-root-directory (ede-current-project))))
 
 (provide 'ede-x-android)
 
 ;; debugging
-
-;; (setq ede-projects nil)
