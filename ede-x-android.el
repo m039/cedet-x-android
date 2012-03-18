@@ -78,6 +78,16 @@
 										  (name-text (car (xml-node-children name-child))))
 									 (setq name name-text)
 									 name))))
+		 (find-name-in-eclipse-xml ()
+							   (let (name)
+								 (if (not (file-exists-p (expand-file-name ".project")))
+									 (setq name nil)
+								   (let* ((root (car (xml-parse-file (expand-file-name ".project"))))
+										  (name-child (car (xml-get-children root 'name)))
+										  (name-text (car (xml-node-children name-child))))
+									 (setq name name-text)
+									 name))))
+		 
 		 (find-name-in-mainfest-xml ()
 									;; TODO
 									nil))
@@ -85,15 +95,11 @@
 	  (setq default-directory (file-name-as-directory dir))
 	  (dolist (f
 			   '(find-name-in-build-xml
-				 find-name-in-pom-xml))
+				 find-name-in-pom-xml
+				 find-name-in-eclipse-xml))
 		(let ((name (funcall f)))
 		  (unless (null name)
 			(return name)))))))
-
-(setq test-dir "/home/m039/Trash/Android-ViewPagerIndicator")
-(setq test-dir "/home/m039/Trash/Android-Examples/WE1")
-
-(ede-x-android-project-data test-dir)
 
 (defmethod initialize-instance ((this ede-x-android-project)
 				&rest fields)
