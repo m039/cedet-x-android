@@ -101,20 +101,6 @@
 		  (unless (null name)
 			(return name)))))))
 
-(defmethod initialize-instance ((this ede-x-android-project)
-				&rest fields)
-  "Make sure the targets slot is bound."
-  (call-next-method)
-
-  (unless (slot-boundp this 'targets)
-	;; @TODO - All android projects are the same, so we can probably
-	;; prepopulate this whole thing right off.
-	(oset this :targets nil))
-  ;; In case the defaults change, force the known configurations
-  ;; of android to be setup here.
-  (oset this configurations '("debug" "install" "release"))
-  (oset this configuration-default "debug"))
-
 (defclass ede-x-android-project (ede-project eieio-instance-tracker)
   ((tracking-symbol :initform 'ede-x-android-project-list)
    ;; (keybindings :initform (("S" . ede-android-visit-strings)))
@@ -132,11 +118,15 @@
    ;; 	  "--"
    ;; 	  [ "Rescan Project Files" ede-rescan-toplevel t ]
    ;; 	  ))
+
+   (targets :initform nil)
+   (configurations :initform ("debug" "install" "release") :type list)   
+   (configuration-default :initform "debug")
+
    (package :initarg :package
 		:initform "com"
 		:type string
-		:documentation "The package extracted from the Manifest.")
-   )
+		:documentation "The package extracted from the Manifest."))
   "Project for Android applications.")
 
 (ede-add-project-autoload
