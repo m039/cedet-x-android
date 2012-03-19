@@ -120,7 +120,8 @@ DIR is the directory to search from."
   ((tracking-symbol :initform 'ede-x-android-project-list)
    (menu :initform
 	 (
-	  [ "Start nine-patch editor" cedet-x-android-start-nine-patch-editor ]
+	  [ "Start nine-patch editor"	cedet-x-android-start-nine-patch-editor ]
+	  [ "Start gui builder"			cedet-x-android-start-gui-builder ]
 	  ))
    (targets :initform nil)
    (configurations :initform ("debug install"
