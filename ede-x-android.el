@@ -118,6 +118,10 @@ DIR is the directory to search from."
 ;;;###autoload
 (defclass ede-x-android-project (ede-project eieio-instance-tracker)
   ((tracking-symbol :initform 'ede-x-android-project-list)
+   (menu :initform
+	 (
+	  [ "Start nine-patch editor" cedet-x-android-start-nine-patch-editor ]
+	  ))
    (targets :initform nil)
    (configurations :initform ("debug install"
 							  "clean debug"
