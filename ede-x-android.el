@@ -1,4 +1,5 @@
 (require 'cedet-android)
+(require 'cedet-x-android)
 
 (defun ede-x-android-clean-all ()
   "Only for debugging purpose! Sets all project-lists to nil"
@@ -126,11 +127,10 @@ DIR is the directory to search from."
 							  "clean release install") :type list)
 
    (configuration-default :initform "clean debug install")
-
    (package :initarg :package
-		:initform "com"
-		:type string
-		:documentation "The package extracted from the Manifest."))
+			:initform "com"
+			:type string
+			:documentation "The package extracted from the Manifest."))
   "Project for Android applications.")
 
 (defclass ede-x-android-target-misc (ede-target)
@@ -220,8 +220,18 @@ If one doesn't exist, create a new one for this directory."
   (list (cedet-android-sdk-jar)))
 
 (defmethod ede-source-paths ((this ede-x-android-project) mode)
-  (list "/opt/android-sdk/sources/android-14/java/lang/"
-		"/opt/android-sdk/sources/android-14/"))
+  (let ((pr (ede-project-root-directory this)))
+    (cond ((eq mode 'java-mode)
+		   (list
+			"/opt/android-sdk/sources/android-14/java/lang/"
+			"/opt/android-sdk/sources/android-14/"
+			(ede-x-android-fname-if-exists (expand-file-name "src" pr))
+			(ede-x-android-fname-if-exists (expand-file-name "gen" pr))))
+		  ((or (eq mode 'nxml-mode)					 ;; emacs 23
+			   (and (eq mode 'sgml-mode) sgml-xml-mode)) ;; emacs 22
+		   (list
+			(ede-x-android-fname-if-exists (expand-file-name "res" pr))))
+		  (t nil))))
 
 (defun ede-x-android-fname-if-exists (name)
   "Return the file NAME if it exists as a file."
