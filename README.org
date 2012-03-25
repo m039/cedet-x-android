@@ -1,0 +1,11 @@
+* About
+  This code is under development in my nightly hours.
+
+* Details
+  The somehow working files is:
+  - ede-x-android.el
+    
+  Others, better don't look at them.
+  
+* License
+  The same as cedet or emacs, I guess.
