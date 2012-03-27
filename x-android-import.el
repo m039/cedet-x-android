@@ -1,6 +1,8 @@
 (require 'cedet-java)
 (require 'cedet-android)
 
+(require 'cl)
+
 (require 'jde-import)
 (require 'efc)
 
@@ -35,12 +37,34 @@ the current buffer."
       (jde-import-insert-imports-into-buffer (list class))))
 
 (defun x-android-import-class (class-name)
-  (interactive "sClass name:")
+  (interactive "sClass name: ")
   (let* ((imports (mapcar (lambda (f)
                             (let ((no-class (substring f 0 (string-match "\\.class" f))))
                               (replace-regexp-in-string "\\(\\$\\|/\\)" "." no-class)))
                           (x-android-import-find-files class-name)))
-         (selected-class (efc-query-options imports "Select class")))
-    (x-android-import-one-class selected-class)))
+         
+         (imports (remove-duplicates imports :test 'string=))
+         
+         (selected-class (if (<= (length imports) 1)
+                             (car imports)
+                           (efc-query-options imports "Select class")))
+         )
+    (if (null selected-class)
+        (message "Nothing is imported.")
+      (x-android-import-one-class selected-class))))
+
+(defun x-android-import-class-under-point ()
+  (interactive)
+  (let ((cur-word (current-word)))
+    (when (and cur-word  (> (length cur-word) 0))
+      (when (string-match "[^a-zA-Z0-9_]\\([a-zA-Z0-9_]+\\)$" cur-word)
+        (setq cur-word (match-string-no-properties 1  cur-word)))
+      (when (string-match "^\\([a-zA-Z0-9_]+\\)[^a-zA-Z0-9_]" cur-word)
+        (setq cur-word (match-string-no-properties 1  cur-word)))
+      (x-android-import-class cur-word))))
+
+(defun x-android-import-all-classes ()
+  (interactive)
+  )
 
 (provide 'x-android-import)
