@@ -24,12 +24,54 @@ in java-mode."
         (push F ans)))
     (nreverse ans)))
 
-(defun x-android-import-find-files (file-name)
+(defun x-android-import-find-files-in-databases (file-name)
   "Return list of the full file names finded in all databases in
 the current buffer."
-  (apply 'append (mapcar (lambda (db)
-                           (x-android-import-find-files-from-database db file-name))
-                         (x-android-import-get-java-jar-databases))))
+  (remove-duplicates (apply 'append (mapcar (lambda (db)
+                                              (x-android-import-find-files-from-database db file-name))
+                                            (x-android-import-get-java-jar-databases))) :test 'string=))
+
+(defun x-android-import-find-files-in-directory (directory match &optional cut-directory-part)
+  "Find all files matched MATCH in DIR "
+  (let (ans)
+    (flet ((dir-directories (dir)
+                            (let (dirs)
+                              (dolist (f (directory-files dir))
+                                (let ((f-full-name (expand-file-name f dir)))
+                                  (when (and (file-directory-p f-full-name)
+                                             (not (member f '("." ".."))))
+                                    (push (file-name-as-directory f-full-name) dirs))))
+                              (nreverse dirs)))
+           
+           (dir-files (dir)
+                      (dolist (f (directory-files dir t match))
+                        (push f ans)))
+
+           (dir-recursive (dir)
+                          (dir-files dir)
+                          (dolist (d (dir-directories dir))
+                            (dir-recursive d))))
+      
+      (dir-recursive directory)
+
+      (let ((res (nreverse ans)))
+        (if cut-directory-part
+            (let* ((full-name (expand-file-name directory))
+                   (full-name-length (length full-name)))
+              (mapcar (lambda (f) (substring f full-name-length)) res))
+          res)))))
+
+(defun x-android-import-find-files-in-bin-directory (file-name)
+  "Find all *.class files in DIR "
+  (let* ((root (ede-project-root-directory (ede-current-project)))
+         (files (remove-duplicates
+                 (x-android-import-find-files-in-directory (expand-file-name "bin/classes/" root) "\\.class$" t)
+                 :test 'string=)))
+    (let (ans)
+      (dolist (f files)
+        (when (string-match (concat "[/$]" (regexp-quote file-name) "\\.class$") f)
+          (push f ans)))
+      (nreverse ans))))
 
 (defun x-android-import-one-class (class)
   "Insert an import into the buffer if not already there."
@@ -41,9 +83,8 @@ the current buffer."
   (let* ((imports (mapcar (lambda (f)
                             (let ((no-class (substring f 0 (string-match "\\.class" f))))
                               (replace-regexp-in-string "\\(\\$\\|/\\)" "." no-class)))
-                          (x-android-import-find-files class-name)))
-         
-         (imports (remove-duplicates imports :test 'string=))
+                          (append (x-android-import-find-files-in-databases class-name)
+                                  (x-android-import-find-files-in-bin-directory class-name))))
          
          (selected-class (if (<= (length imports) 1)
                              (car imports)
