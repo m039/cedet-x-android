@@ -1,6 +1,8 @@
 (require 'cedet-android)
 (require 'cedet-x-android)
 
+(require 'x-android-util)
+
 (defun ede-x-android-clean-all ()
   "Only for debugging purpose! Sets all project-lists to nil"
   (interactive)
@@ -67,10 +69,15 @@ DIR is the directory to search from."
           (cons 'version version)
           (cons 'package package))))
 
+;;
+;; WARN: in api-demos didn't find the version
+;; 
 (defun ede-x-android-project-data-version (dir)
   (let* ((root (car (xml-parse-file (expand-file-name "AndroidManifest.xml" dir))))
          (version-text (xml-get-attribute-or-nil root 'android:versionName)))
-         version-text))
+         (if version-text
+             version-text
+           "0.00")))
 
 (defun ede-x-android-project-data-package (dir)
   (let* ((root (car (xml-parse-file (expand-file-name "AndroidManifest.xml" dir))))
@@ -222,10 +229,6 @@ If one doesn't exist, create a new one for this directory."
 ;;; Include paths
 ;;  ------- -----
 
-(defun ede-x-android-jars-in-lib (proj)
-  (let ((root (ede-project-root-directory proj)))
-    (directory-files (expand-file-name "libs" root) t ".+\\.jar$")))
-
 (defmethod ede-system-include-path ((this ede-x-android-target-java))
   "Get the system include path used by target THIS."
   ;; Get android.jar, and add it.  but how??
@@ -233,23 +236,10 @@ If one doesn't exist, create a new one for this directory."
   (list "/opt/android-sdk/sources/android-14/"))
 
 (defmethod ede-java-classpath ((this ede-x-android-project))
-  (append (list (cedet-android-sdk-jar))
-          (cedet-x-android-support-jars)
-          (ede-x-android-jars-in-lib this)))
+  (x-android-find-classpath-recursively (ede-project-root-directory this)))
 
 (defmethod ede-source-paths ((this ede-x-android-project) mode)
-  (let ((pr (ede-project-root-directory this)))
-    (cond ((eq mode 'java-mode)
-           (list
-            "/opt/android-sdk/sources/android-14/java/lang/"
-            "/opt/android-sdk/sources/android-14/"
-            (ede-x-android-fname-if-exists (expand-file-name "src" pr))
-            (ede-x-android-fname-if-exists (expand-file-name "gen" pr))))
-          ((or (eq mode 'nxml-mode)                  ;; emacs 23
-               (and (eq mode 'sgml-mode) sgml-xml-mode)) ;; emacs 22
-           (list
-            (ede-x-android-fname-if-exists (expand-file-name "res" pr))))
-          (t nil))))
+  (x-android-find-source-path-recursively (ede-project-root-directory this) mode))
 
 (defun ede-x-android-fname-if-exists (name)
   "Return the file NAME if it exists as a file."

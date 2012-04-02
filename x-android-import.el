@@ -61,22 +61,36 @@ the current buffer."
               (mapcar (lambda (f) (substring f full-name-length)) res))
           res)))))
 
-(defun x-android-import-find-files-in-bin-directory (file-name)
+(defun x-android-import-find-files-in-bin/classes-directory (file-name)
   "Find all *.class files in DIR "
-  (let* ((root (ede-project-root-directory (ede-current-project)))
-         (files (remove-duplicates
-                 (x-android-import-find-files-in-directory (expand-file-name "bin/classes/" root) "\\.class$" t)
-                 :test 'string=)))
-    (let (ans)
-      (dolist (f files)
-        (when (string-match (concat "[/$]" (regexp-quote file-name) "\\.class$") f)
-          (push f ans)))
-      (nreverse ans))))
+  (x-android-import-update-bin/classes-files)
+  (let (ans)
+    (dolist (f x-android-import-bin/classes-files)
+      (when (string-match (concat "[/$]" (regexp-quote file-name) "\\.class$") f)
+        (push f ans)))
+    (nreverse ans)))
 
 (defun x-android-import-one-class (class)
   "Insert an import into the buffer if not already there."
   (if (not (jde-import-already-imports-class class (jde-import-get-imports)))
       (jde-import-insert-imports-into-buffer (list class))))
+
+(defvar x-android-import-bin/classes-files nil
+  "This variable as a cache holds list of *.class file names in
+  bin/classes.")
+
+(defun x-android-import-update-bin/classes-files ()
+  (let* ((root (ede-project-root-directory (ede-current-project)))
+         (files (remove-duplicates
+                 (x-android-import-find-files-in-directory (expand-file-name "bin/classes/" root) "\\.class$" t)
+                 :test 'string=)))
+    (when files
+      (setq x-android-import-bin/classes-files files))))
+
+;; todo add before compilation hook
+
+(add-to-list 'compilation-finish-functions
+             (lambda (buffer error) (x-android-import-update-bin/classes-files)))
 
 (defun x-android-import-class (class-name)
   (interactive "sClass name: ")
@@ -84,7 +98,7 @@ the current buffer."
                             (let ((no-class (substring f 0 (string-match "\\.class" f))))
                               (replace-regexp-in-string "\\(\\$\\|/\\)" "." no-class)))
                           (append (x-android-import-find-files-in-databases class-name)
-                                  (x-android-import-find-files-in-bin-directory class-name))))
+                                  (x-android-import-find-files-in-bin/classes-directory class-name))))
          
          (selected-class (if (<= (length imports) 1)
                              (car imports)
