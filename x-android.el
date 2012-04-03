@@ -118,10 +118,32 @@
               (push jar ans)))
           (nreverse ans))))))
 
-(defun x-android-find-classpath (root-dir)
-  (append (x-android-find-files-in-directory (expand-file-name "libs/" root-dir) "\\.jar$")
-          (list (x-android-find-android.jar root-dir))
-          (x-android-find-support-*.jar root-dir)))
+(defun x-android-find-android-sources (root-dir)
+  "Return the path to the folder with android sources.
+
+Example: '/opt/android/sources/target-14'"
+  (let* ((lp (x-android-parse-local.properties root-dir))
+         (sdk.dir (cdr (assoc 'sdk.dir lp)))
+         (pp (x-android-parse-project.properties root-dir))
+         (target (cdr (assoc 'target pp))))
+
+    (flet ((find-target-sources ()
+                                (let ((sources (and sdk.dir
+                                                    target
+                                                    (expand-file-name (concat "sources/" target) sdk.dir))))
+                                  (and sources
+                                       (file-directory-p sources)
+                                       sources)))
+           (find-first-sources ()
+                               (let ((files (directory-files (expand-file-name "sources/" sdk.dir) t))
+                                     (ans))
+                                 (dolist (f files)
+                                   (when (not (member (file-name-nondirectory f) '("." "..")))
+                                     (setq ans f)
+                                     (return)))
+                                 ans)))
+           (or (find-target-sources)
+               (find-first-sources)))))
 
 (defun x-android-find-libs (root-dir)
   "Helpful function to find all libraries in this
@@ -143,8 +165,14 @@ project (pointed by the root-dir)"
       (find-libs-r root-dir)
       all-libs)))
 
+(defun x-android-find-classpath (root-dir)
+  (append (x-android-find-files-in-directory (expand-file-name "libs/" root-dir) "\\.jar$")
+          (list (x-android-find-android.jar root-dir))
+          (x-android-find-support-*.jar root-dir)))
+
+
 (defun x-android-find-classpath-recursively (root-dir)
-  (let* ((libs (x-android-find-libs root-dir))
+  (let* ((all-libs (x-android-find-libs root-dir))
          all-classpath)
     (flet ((push-classpath (dir)
                            (dolist (c (x-android-find-classpath dir))
@@ -194,14 +222,18 @@ project (pointed by the root-dir)"
           (push p ans))))
     ans))
 
-;; (x-android-find-source-path-recursively rdir 'java-mode)
+(defun x-android-find-bin/classes (root-dir)
+  "Return the list of all files in the <root-dir>/bin/classes that match *.class"
+  (x-android-find-files-in-directory (expand-file-name "bin/classes/" root-dir) "\\.class$" t))
 
-;; (x-android-find-libs rdir)
-;; (x-android-find-source-path rdir 'java-mode)
-;; (setq rdir "~/Projects/douchebag/")
+(defun x-android-find-bin/classes-recursively (root-dir)
+  "Return the list of all files in the <root-dir>/bin/classes that match *.class"
+  (let (ans)
+    (dolist (l (nreverse (cons root-dir (x-android-find-libs root-dir))))
+      (dolist (p (x-android-find-bin/classes l))
+        (when p
+          (push p ans))))
+    (remove-duplicates ans :test 'string=)))
 
-;; (x-android-parse-src rdir)
-;; (x-android-parse-project.properties rdir)
-;; (cdr (assoc 'sdk.dir (x-android-parse-local.properties rdir)
+(provide 'x-android)
 
-(provide 'x-android-util)

@@ -1,7 +1,7 @@
 (require 'cedet-android)
 (require 'cedet-x-android)
 
-(require 'x-android-util)
+(require 'x-android)
 
 (defun ede-x-android-clean-all ()
   "Only for debugging purpose! Sets all project-lists to nil"
@@ -231,9 +231,9 @@ If one doesn't exist, create a new one for this directory."
 
 (defmethod ede-system-include-path ((this ede-x-android-target-java))
   "Get the system include path used by target THIS."
-  ;; Get android.jar, and add it.  but how??
-  ;; (message "ede-system-include: %s" this)
-  (list "/opt/android-sdk/sources/android-14/"))
+  (let ((root-dir (ede-project-root-directory (ede-current-project))))
+    (append (x-android-find-source-path-recursively root-dir  'java-mode)
+            (list (x-android-find-android-sources root-dir)))))
 
 (defmethod ede-java-classpath ((this ede-x-android-project))
   (x-android-find-classpath-recursively (ede-project-root-directory this)))

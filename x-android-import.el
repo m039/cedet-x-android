@@ -63,7 +63,8 @@ the current buffer."
 
 (defun x-android-import-find-files-in-bin/classes-directory (file-name)
   "Find all *.class files in DIR "
-  (x-android-import-update-bin/classes-files)
+  (unless x-android-import-bin/classes-files
+      (x-android-import-update-bin/classes-files))
   (let (ans)
     (dolist (f x-android-import-bin/classes-files)
       (when (string-match (concat "[/$]" (regexp-quote file-name) "\\.class$") f)
@@ -81,9 +82,7 @@ the current buffer."
 
 (defun x-android-import-update-bin/classes-files ()
   (let* ((root (ede-project-root-directory (ede-current-project)))
-         (files (remove-duplicates
-                 (x-android-import-find-files-in-directory (expand-file-name "bin/classes/" root) "\\.class$" t)
-                 :test 'string=)))
+         (files (x-android-find-bin/classes-recursively root)))
     (when files
       (setq x-android-import-bin/classes-files files))))
 
