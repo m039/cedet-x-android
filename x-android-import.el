@@ -86,10 +86,10 @@ the current buffer."
     (when files
       (setq x-android-import-bin/classes-files files))))
 
-;; todo add before compilation hook
-
 (add-to-list 'compilation-finish-functions
-             (lambda (buffer error) (x-android-import-update-bin/classes-files)))
+             (lambda (buffer msg)
+               (when (string-match "finished" msg)
+                 (x-android-import-update-bin/classes-files))))
 
 (defun x-android-import-class (class-name)
   (interactive "sClass name: ")

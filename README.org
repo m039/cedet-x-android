@@ -9,11 +9,22 @@
   on porting jde-import-* functions, but not for porting purpose,
   cause I'm curious about how cedet and jde works, that is all.
   
-* Details
-  The somehow working files is:
-  - ede-x-android.el
-    
-  Others.. better don't look at them.
+* Info
+  This code is still bad structured but I found ede-x-android.el and
+  x-android.el are easy to read and use.
+
+  Other files are almost snippets from various projects (jde, ajc).
+
+  Try to look at wiki to see how to use this tool.
+
+* What has been changed (or added) to bzr version
+  - You don't need to revisit AndroidManifest.xml to open project.
+  - In x-android.el all functions related to android projects
+  - class import functions 
+  - Finding sources/libraries/files recursively across linked
+    libraries that found in project.properties file
+  - New targets like: "debug clean install"
+  - Added 2 keybindings to open: nine-patch editor or gui builder
   
 * License
   The same as cedet or emacs, I guess.
