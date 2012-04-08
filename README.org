@@ -10,7 +10,7 @@
   This code is still bad structured but I found =ede-x-android.el= and
   =x-android.el= are easy to read and use.
 
-  Other files are almost snippets from various projects (jde, ajc).
+  Other files are almost snippets from various projects (cedet, jde, ajc).
 
   Try to look at wiki to see how to use this tool.
 
