@@ -3,12 +3,12 @@
 
   I'm using this code for my android development with a lot of other
   tools, so it works but too few functionality. Currently, I'm working
-  on porting jde-import-* functions, but not for porting purpose,
+  on porting =jde-import-*= functions, but not for porting purpose,
   cause I'm curious about how cedet and jde works, that is all.
   
 * Info
-  This code is still bad structured but I found ede-x-android.el and
-  x-android.el are easy to read and use.
+  This code is still bad structured but I found =ede-x-android.el= and
+  =x-android.el= are easy to read and use.
 
   Other files are almost snippets from various projects (jde, ajc).
 
