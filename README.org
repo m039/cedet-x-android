@@ -1,9 +1,6 @@
 * About
   This code is under development in my nightly hours.
 
-  This code is really testing version, there are a lot of hardcoded
-  strings.
-
   I'm using this code for my android development with a lot of other
   tools, so it works but too few functionality. Currently, I'm working
   on porting jde-import-* functions, but not for porting purpose,
