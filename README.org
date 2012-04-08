@@ -16,7 +16,7 @@
 
 * What has been changed (or added) to bzr version
   - You don't need to revisit AndroidManifest.xml to open project.
-  - In x-android.el all functions related to android projects
+  - In =x-android.el= all functions related to android projects
   - class import functions 
   - Finding sources/libraries/files recursively across linked
     libraries that found in project.properties file
