@@ -112,14 +112,18 @@ DIR is the directory to search from."
                                       (let* ((root (car (xml-parse-file (expand-file-name "AndroidManifest.xml"))))
                                              (name-child (car (xml-get-children root 'application)))
                                              (name-text (xml-get-attribute-or-nil name-child 'android:name)))
-                                        name-text))))
+                                        name-text)))
+
+         (find-name-default ()
+           "Can't find the project name"))
     (with-temp-buffer
       (setq default-directory (file-name-as-directory dir))
       (dolist (f
                '(find-name-in-build-xml
                  find-name-in-pom-xml
                  find-name-in-eclipse-xml
-                 find-application-name-in-mainfest-xml))
+                 find-application-name-in-mainfest-xml
+                 find-name-default))
         (let ((name (funcall f)))
           (unless (null name)
             (return name)))))))
