@@ -18,7 +18,8 @@
 (defconst x-android-db/result-type "html")
 
 (defun x-android-db/start-sqlite-process ()
-  "Spawn the sqlite process in the buffer"
+  "Spawn the sqlite process in the buffer if there is no such
+process."
   (let ((comint-prompt-regexp "^sqlite>+ *")
         )
 
