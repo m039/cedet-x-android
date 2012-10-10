@@ -4,6 +4,7 @@
 ;;
 
 (require 'x-android-db)
+(require 'x-android-mode-line)
 
 ;;
 ;; Common stuff
@@ -302,6 +303,21 @@
   (interactive)
   (delete-process *x-android-db-parser/parse-jars-buffer*))
 
+
+(defun x-android-start-parsing-database-in-tmp ()
+  "Raw/manual usage function. To generate database a little faster."
+  (interactive)
+  (let ((x-android-cache-directory (file-name-as-directory "/tmp/")))
+    (x-android-db-parser/parse-jars)))
+
+(defun x-android-move-database-from-tmp-to-cache ()
+  "Raw/manual usage function (use it after x-android-start-parsing-database-in-tmp)"
+  (interactive)
+  (let ((project (ede-current-project)))
+    (rename-file (let ((x-android-cache-directory (file-name-as-directory "/tmp/")))
+                   (x-android-db-parser/find-database project))
+                 (x-android-db-parser/find-database project)
+                 t)))
 
 (defalias 'x-android-start-parsing-database
   'x-android-db-parser/parse-jars)

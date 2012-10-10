@@ -2,6 +2,9 @@
 (require 'cedet-x-android)
 
 (require 'x-android)
+(require 'x-android-import)
+(require 'x-android-cache)
+(require 'x-android-db-parser)
 
 (defun ede-x-android-clean-all ()
   "Only for debugging purpose! Sets all project-lists to nil"
@@ -358,6 +361,7 @@ Depends on `android.el' that comes with the SDK to get going."
         (insert (format "Main file:\n  %s\n" (oref project file)))
         (insert (format "Root:\n  %s\n" root))
         (insert (format "Cache directory:\n  %s\n" (x-android-cache/find-cache-directory project)))
+        (insert (format "Parsed jars file (SQLite database):\n  %s\n" (x-android-db-parser/find-database project)))
 
         (insert "Libs:\n")
         (insert-list (x-android-find-libs root))

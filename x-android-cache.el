@@ -42,3 +42,5 @@
                        "."
                        (oref project name))))
     (file-name-as-directory (x-android-cache/find-project-directory-by-name name))))
+
+(provide 'x-android-cache)
