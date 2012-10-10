@@ -163,7 +163,7 @@ project (pointed by the root-dir)"
                           (dolist (l libs)
                             (find-libs-r l)))))
       (find-libs-r root-dir)
-      all-libs)))
+      (remove-duplicates all-libs :test 'string=))))
 
 (defun x-android-find-classpath (root-dir)
   (append (x-android-find-files-in-directory (expand-file-name "libs/" root-dir) "\\.jar$")
@@ -197,6 +197,9 @@ project (pointed by the root-dir)"
                                                     (and (not (string= af ""))
                                                          (not (string= bf ""))
                                                          (string= af bf))))))))
+
+(defun x-android/find-jars (root)
+  (x-android-find-classpath-recursively root))
 
 (defun x-android-fname-if-exists (name)
   "Return the file NAME if it exists as a file."
@@ -234,6 +237,11 @@ project (pointed by the root-dir)"
         (when p
           (push p ans))))
     (remove-duplicates ans :test 'string=)))
+
+(defun x-android/lib-directory ()
+  "Returns the path to the lib directory with jar files."
+  (file-name-as-directory (concat (file-name-directory (locate-library "cedet-x-android"))
+                                  "lib/")))
 
 (provide 'x-android)
 

@@ -5,6 +5,11 @@
 
 (require 'x-android-db)
 
+;;
+;; Common stuff
+;; 
+
+(defvar *x-android-db/parsed-jars-db-name* "parsed-jars.db")
 
 (defun x-android-db-parser/select-database ( database-path )
   (x-android-db/start-sqlite-process)
@@ -35,10 +40,10 @@
 
 
 (defun x-android-db-parser/extract/simple_name ( result )
-  (mapcar (lambda (l) (nth 1 l)) result))
+  (remove-duplicates  (mapcar (lambda (l) (nth 1 l)) result) :test 'string= ))
 
 (defun x-android-db-parser/extract/name ( result )
-  (mapcar (lambda (l) (nth 0 l)) result))
+  (remove-duplicates (mapcar (lambda (l) (nth 0 l)) result) :test 'string= ))
 
 
 (defun x-android-db-parser/filter ( predicate coll )
@@ -69,10 +74,14 @@
                                (completing-read "Select the interface: " simple-names)
                                interfaces)))
 
+    (message (format "%s" selected-interfaces))
+    
     (when (> (length selected-interfaces) 1)
-      (let ((names (x-android-db-parser/extract/name selected-interfaces)))
+      (let ((names (x-android-db-parser/extract/name selected-interfaces)))     
         (setq selected-interfaces (x-android-db-parser/filter/name
-                                   (completing-read "Correct the selection: " names)
+                                   (if (> (length names) 1)
+                                       (completing-read "Correct the selection: " names)
+                                     (car names))
                                    interfaces))))
 
     (car selected-interfaces)))
@@ -144,8 +153,8 @@
               (setq enclosing-class (format "%s." (x-android-db-parser/get/simple_name enclosing-class))))
             
             (format (if for-yas
-                        "new %s%s() {\n%s};"
-                      "new %s%s() {\n%s};$0")
+                        "new %s%s() {\n%s};$0"
+                      "new %s%s() {\n%s};")
                     
                     enclosing-class
                     simple-name
@@ -172,14 +181,134 @@
                       (buffer-string)))
             ))))))
 
-(defun x-android-new-interface ()
+;;
+;; Project stuff
+;; 
+
+(defun x-android-db-parser/find-database ( project )
+  (concat (x-android-cache/find-cache-directory project)
+          *x-android-db/parsed-jars-db-name*))
+;;
+;; Interface generator
+;; 
+
+(defun x-android-new-interface ( &optional use-yas )
   (interactive)
-  (let ((start (point)))
-    (insert (x-android-db-parser/read-interface))
-    (indent-region start (point))))
+  (let ((database (x-android-db-parser/find-database (ede-current-project)))
+        (start (point)))
+
+    (if (not (file-exists-p database))
+        (message "There is no database to find interface.")
+
+      (x-android-db-parser/select-database database)
+      (insert (x-android-db-parser/read-interface use-yas))
+      (indent-region start (point)))))
 
 (defun x-android-new-interface-yas ()
   (interactive)
-  (let ((start (point)))
-    (yas/expand-snippet (x-android-db-parser/read-interface t))
-    (indent-region start (point))))
+  (let ((database (x-android-db-parser/find-database (ede-current-project)))
+        (start (point)))
+
+    (if (not (file-exists-p database))
+        (message "There is no database to find interface.")
+      (x-android-db-parser/select-database database)
+      
+      (yas/expand-snippet (x-android-db-parser/read-interface t))
+      (indent-region start (point)))))
+
+;;
+;; Parser
+;;
+
+(defvar *x-android-db-parser/parse-jars-buffer* "*x-android-db-parser/parse-jars*")
+
+(defconst *x-android-db-parser/mode-line* "j [%d/%d]")
+(defconst *x-android-db-parser/parsed-patter* "Parses")
+
+(defun x-android-db-parser/update-mode-line (i max)
+  (x-android-mode-line/inject-and-update
+   (format *x-android-db-parser/mode-line* i max)))
+
+(defun x-android-db-parser/parse-jars ()
+  "Start parsing all jars in the current project to the database."
+  (interactive)
+  (let* ((project (ede-current-project))
+         (root (ede-project-root-directory project))
+         (cache-dir (x-android-cache/find-cache-directory project))
+         (database (concat cache-dir *x-android-db/parsed-jars-db-name*))
+         (parser-program (concat (x-android/lib-directory) "clj-parse-android.jar"))
+         jars)
+
+    (setq jars (let (res)
+                 (dolist (jar (x-android/find-jars root) res)
+                   (if (null res)
+                       (setq res jar)
+                     (setq res (concat res ":" jar))))))
+
+    ;;
+    ;; Start parser asynchronous
+    ;;
+    (let ((buffer (get-buffer-create *x-android-db-parser/parse-jars-buffer*))
+          process)
+
+      (if (get-buffer-process buffer)
+          (message "The process is already exist! Try to wait or to kill it manualy.")
+
+        (with-current-buffer buffer
+          (erase-buffer)
+
+          (make-local-variable 'count)
+          (make-local-variable 'index)
+          
+          (setq count (length (x-android/find-jars root)))
+          (setq index 0)
+          
+          (x-android-db-parser/update-mode-line index count))
+        
+        (x-android-mode-line/inject)
+        
+        (setq process (start-process-shell-command
+                       "x-android-db-parser/parse-jar" 
+                       buffer
+                       "java"
+                       (format "-jar %s " parser-program)
+                       (format "-o %s " database)
+                       (format "-j %s " jars)))
+
+        ;;
+        ;; On each occurence increment the mode-line numbers
+        ;;
+        (set-process-filter process (lambda (process output)
+                                      (let ((buffer (get-buffer *x-android-db-parser/parse-jars-buffer*)))
+                                        (when buffer
+                                          (with-current-buffer buffer
+                                            (when (string-match *x-android-db-parser/parsed-patter* output)
+                                              (x-android-db-parser/update-mode-line index count)
+                                              (setq index (+ index 1))))))))
+
+        ;;
+        ;; Hide mode-line string at process finish
+        ;;
+        (set-process-sentinel process (lambda (process message)
+                                        (message message)
+                                        (when (or (string= message "finished\n")
+                                                  (string= message "killed\n"))
+                                          (x-android-mode-line/inject t))))
+      
+      ))))
+
+(defun x-android-db-parser/stop-parsing-jars ()
+  "Stop parsing all jars in the current project."
+  (interactive)
+  (delete-process *x-android-db-parser/parse-jars-buffer*))
+
+
+(defalias 'x-android-start-parsing-database
+  'x-android-db-parser/parse-jars)
+
+(defalias 'x-android-stop-parsing-database
+  'x-android-db-parser/stop-parsing-jars)
+
+
+(provide 'x-android-db-parser)
+

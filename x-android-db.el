@@ -23,10 +23,22 @@ process."
   (let ((comint-prompt-regexp "^sqlite>+ *")
         )
 
-    (make-comint x-android-db/sqlite-process-name
-                 x-android-db/sqlite-program nil (format "-%s" x-android-db/result-type))
-    
-    ))
+    (or (get-buffer-process x-android-db/sqlite-process-buffer)
+        (progn
+          (with-current-buffer (get-buffer-create x-android-db/sqlite-process-buffer)
+            (make-local-variable 'comint-prompt-regexp)
+            (setq comint-prompt-regexp "^sqlite>+ *")
+            (erase-buffer)
+            (goto-char (point-min)))
+
+          (make-comint-in-buffer x-android-db/sqlite-process-name
+                                 x-android-db/sqlite-process-buffer
+                                 x-android-db/sqlite-program
+                                 nil)
+
+          (sleep-for 1)
+
+          (x-android-db/send-command (x-android-db/command/mode-html))))))
 
 (defun x-android-db/send-command ( command )
   "Sends the command to the SQLITE process. Returns nil if error

@@ -71,7 +71,7 @@ DIR is the directory to search from."
 
 ;;
 ;; WARN: in api-demos didn't find the version
-;; 
+;;
 (defun ede-x-android-project-data-version (dir)
   (let* ((root (car (xml-parse-file (expand-file-name "AndroidManifest.xml" dir))))
          (version-text (xml-get-attribute-or-nil root 'android:versionName)))
@@ -208,8 +208,8 @@ If one doesn't exist, create a new one for this directory."
                          (format "-%s" ext))))
          )
     (when (not ans)
-      (setq ans (make-instance 
-                 cls 
+      (setq ans (make-instance
+                 cls
                  :name name
                  :path dir
                  :source nil))
@@ -302,7 +302,7 @@ Argument COMMAND is the command to use when compiling."
 
 (defmethod project-compile-target ((proj ede-x-android-target-java) &optional command)
   (project-compile-project (ede-current-project) command))
-  
+
 (defmethod project-compile-target ((proj ede-x-android-target-xml) &optional command)
   (project-compile-project (ede-current-project) command))
 
@@ -338,3 +338,31 @@ Depends on `android.el' that comes with the SDK to get going."
 (provide 'ede-x-android)
 
 ;; debugging
+
+
+(defun x-android-project-info ()
+  "This function is help to remember the necessary functions."
+  (interactive)
+  (flet ((insert-list (list)
+                      (dolist (l list)
+                        (insert (format "  %s\n" l)))))
+
+    (let* ((project (ede-current-project))
+           (root (ede-project-root-directory project)))
+      (with-current-buffer (get-buffer-create "*x-android-project-info*")
+        (erase-buffer)
+
+        (insert (format "Name:\n  %s\n" (oref project name)))
+        (insert (format "Version:\n  %s\n" (oref project version)))
+        (insert (format "Package:\n  %s\n" (oref project package)))
+        (insert (format "Main file:\n  %s\n" (oref project file)))
+        (insert (format "Root:\n  %s\n" root))
+        (insert (format "Cache directory:\n  %s\n" (x-android-cache/find-cache-directory project)))
+
+        (insert "Libs:\n")
+        (insert-list (x-android-find-libs root))
+
+        (insert "Jars:\n")
+        (insert-list (x-android/find-jars root))
+
+        (switch-to-buffer-other-window (current-buffer))))))
